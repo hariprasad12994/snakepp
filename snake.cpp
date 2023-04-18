@@ -1,7 +1,9 @@
+#include <curses.h>
 #include <deque>
 #include <ncurses.h>
 #include <random>
 #include <algorithm>
+#include <utility>
 
 
 enum Direction { UP = 0, RIGHT, DOWN, LEFT, UNDEFINED };
@@ -76,34 +78,72 @@ private:
 };
 
 
-class Window {
+// todo handle SIGWINCH
+class Screen {
 private:
   int row;
   int column;
 
 public:
-  Window() { 
+  Screen() {
     initscr();
-    getmaxyx(stdscr, row, column); 
-    keypad(stdscr, TRUE);
-    noecho();
-    curs_set(0);
-    timeout(100);
-
-    // std::random_device random_device;
-    // std::mt19937 generator(random_device());
-    // std::uniform_int_distribution<> row_distribution(0, row);
-    // std::uniform_int_distribution<> column_distribution(0, column);
-    // Coordinate snake_start_coordinate {row_distribution(generator), column_distribution(generator)};
-    // mvprintw(snake_start_coordinate.row, snake_start_coordinate.column,  "%c", 'o');
-    // refresh();
+    getmaxyx(stdscr, row, column);
+    clear();
   }
 
-  ~Window() { endwin(); }
+  auto screen_length(void) const -> int { return row; }
+  auto screen_width(void) const -> int { return column; }
+};
+
+
+class Window {
+private:
+  int row;
+  int column;
+  WINDOW* win;
+
+public:
+  Window() { 
+    win = newwin(0, 0, 0, 0);
+    getmaxyx(win, row, column); 
+    keypad(win, TRUE);
+    noecho();
+    curs_set(0);
+    wtimeout(win, 100);
+    box(win, 0, 0);
+    wrefresh(win);
+  }
+
+  auto keyboard_input() -> char {
+    return wgetch(win);
+  }
+
+  auto draw_char(int row, int column, char ch) -> void {
+    mvwprintw(win, row, column, "%c", ch);
+  }
+
+  auto erase_char(int row, int column) -> void {
+    mvwdelch(win, row, column);
+  }
+  
+  auto erase_window() -> void {
+    werase(win);
+  }
+
+  auto render(void) -> void {
+    box(win, 0, 0);
+    wrefresh(win);
+  }
+
+  ~Window() {
+    delwin(win);
+    endwin();
+  }
 };
 
 
 auto main(void) -> int {
+  Screen screen;
   Window window;
 
   int row = 0, column = 0;
@@ -113,19 +153,26 @@ auto main(void) -> int {
   std::uniform_int_distribution<> row_distribution(0, row);
   std::uniform_int_distribution<> column_distribution(0, column);
 
-  Coordinate snake_start_coordinate {row_distribution(generator), column_distribution(generator)};
+  // Coordinate snake_start_coordinate {row_distribution(generator), column_distribution(generator)};
+  Coordinate snake_start_coordinate {4, 4};
   Coordinate food_start_coordinate {row_distribution(generator), column_distribution(generator)};
   Snake snake(snake_start_coordinate);
   const Snake::Body& body = snake.body_coordinates();
-  for(auto const& body_part: body)
-    mvprintw(body_part.row, body_part.column,  "%c", 'o');
-  mvprintw(food_start_coordinate.row, food_start_coordinate.column,  "%c", 'x');
   Direction prev_snake_direction = Direction::UNDEFINED;
   Direction current_snake_direction = Direction::UNDEFINED;
-  refresh();
+
+  for(auto const& body_part: body)
+    window.draw_char(body_part.row, body_part.column, 'o');
+  window.draw_char(food_start_coordinate.row, food_start_coordinate.column, 'x');
+  window.render();
+
+  // for(auto const& body_part: body)
+  //   mvprintw(body_part.row, body_part.column,  "%c", 'o');
+  // mvprintw(food_start_coordinate.row, food_start_coordinate.column,  "%c", 'x');
+  // refresh();
   
   while(1) {
-    int ch = getch();
+    int ch = window.keyboard_input();
 
     switch(ch) {
       case 'i': 
@@ -180,10 +227,16 @@ auto main(void) -> int {
     }
 
     clear();
+    window.erase_window(); 
     for(auto const& body_part: body)
-      mvprintw(body_part.row, body_part.column,  "%c", 'o');
-    mvprintw(food_start_coordinate.row, food_start_coordinate.column,  "%c", 'x');
-    refresh();
+      window.draw_char(body_part.row, body_part.column, 'o');
+    window.draw_char(food_start_coordinate.row, food_start_coordinate.column, 'x');
+    window.render();
+
+    // for(auto const& body_part: body)
+    //   mvprintw(body_part.row, body_part.column,  "%c", 'o');
+    // mvprintw(food_start_coordinate.row, food_start_coordinate.column,  "%c", 'x');
+    // refresh();
   }
 
   return 0;
