@@ -1,4 +1,5 @@
 #include <curses.h>
+#include <sstream>
 #include <deque>
 #include <ncurses.h>
 #include <random>
@@ -96,6 +97,7 @@ public:
 };
 
 
+// todo constructors for fit row, fit column, fit screen ....
 class Window {
 private:
   int row;
@@ -103,8 +105,8 @@ private:
   WINDOW* win;
 
 public:
-  Window() { 
-    win = newwin(0, 0, 0, 0);
+  Window(int length, int width, int left_top_vertex_y, int left_top_vertex_x) { 
+    win = newwin(length, width, left_top_vertex_y, left_top_vertex_x);
     getmaxyx(win, row, column); 
     keypad(win, TRUE);
     noecho();
@@ -120,6 +122,10 @@ public:
 
   auto draw_char(int row, int column, char ch) -> void {
     mvwprintw(win, row, column, "%c", ch);
+  }
+
+  auto draw_text(int row, int column, std::string str) -> void {
+    mvwprintw(win, row, column, "%s", str.c_str());
   }
 
   auto erase_char(int row, int column) -> void {
@@ -144,33 +150,35 @@ public:
 
 auto main(void) -> int {
   Screen screen;
-  Window window;
+  int row = screen.screen_length(), column = screen.screen_width();
 
-  int row = 0, column = 0;
-  getmaxyx(stdscr, row, column); 
+  int score_window_length = row / 4, score_window_width = column;
+  int game_play_window_length = row * 3 / 4, game_play_window_width = column;
+
+  Window score_win(score_window_length, score_window_width, 0, 0);
+  Window window(game_play_window_length, game_play_window_width, score_window_length, 0);
+
   std::random_device random_device;
   std::mt19937 generator(random_device());
-  std::uniform_int_distribution<> row_distribution(0, row);
-  std::uniform_int_distribution<> column_distribution(0, column);
+  std::uniform_int_distribution<> row_distribution(0, game_play_window_length);
+  std::uniform_int_distribution<> column_distribution(0, game_play_window_width);
 
-  // Coordinate snake_start_coordinate {row_distribution(generator), column_distribution(generator)};
-  Coordinate snake_start_coordinate {4, 4};
+  Coordinate snake_start_coordinate {row_distribution(generator), row_distribution(generator)};
   Coordinate food_start_coordinate {row_distribution(generator), column_distribution(generator)};
   Snake snake(snake_start_coordinate);
+  unsigned int score = 0;
   const Snake::Body& body = snake.body_coordinates();
   Direction prev_snake_direction = Direction::UNDEFINED;
   Direction current_snake_direction = Direction::UNDEFINED;
 
+  std::string init_score("Score: 0");
+  score_win.draw_text(score_window_length / 2, score_window_width / 2 - init_score.length() / 2, init_score);
   for(auto const& body_part: body)
     window.draw_char(body_part.row, body_part.column, 'o');
   window.draw_char(food_start_coordinate.row, food_start_coordinate.column, 'x');
   window.render();
+  score_win.render();
 
-  // for(auto const& body_part: body)
-  //   mvprintw(body_part.row, body_part.column,  "%c", 'o');
-  // mvprintw(food_start_coordinate.row, food_start_coordinate.column,  "%c", 'x');
-  // refresh();
-  
   while(1) {
     int ch = window.keyboard_input();
 
@@ -212,31 +220,47 @@ auto main(void) -> int {
                       return head.row == coordinate.row && head.column == coordinate.column;
                     }) != body.end())
     {
+      window.erase_window();
+      window.draw_text(game_play_window_length / 2, game_play_window_width / 2, std::string("game over...."));
       break;
     }
 
-    if(head.row < 0 || head.column < 0 || head.row > row || head.column > column)
+    if(head.row < 0 || head.column < 0 || head.row > row || head.column > column) {
+      window.erase_window();
+      std::string game_over_str = "game over...";
+      window.draw_text(game_play_window_length / 2, game_play_window_width / 2 - game_over_str.length() / 2, std::string("game over...."));
       break;
+    }
 
     if(head.row == food_start_coordinate.row &&
        head.column == food_start_coordinate.column) {
-      // check if food is within the range body
+      score++;
+      std::stringstream score_stream; 
+      score_stream << "Score: " << score;
+      std::string score_string = score_stream.str();
+      std::size_t score_string_len = score_string.length();
+      score_win.draw_text(score_window_length / 2, score_window_width / 2 - score_string_len / 2, score_string);
+
       snake.grow(food_start_coordinate);
+      // todo check if food is within the range body
       food_start_coordinate.row = row_distribution(generator);
       food_start_coordinate.column = column_distribution(generator);
     }
 
-    clear();
+    // clear();
     window.erase_window(); 
     for(auto const& body_part: body)
       window.draw_char(body_part.row, body_part.column, 'o');
     window.draw_char(food_start_coordinate.row, food_start_coordinate.column, 'x');
     window.render();
+    score_win.render();
+  }
 
-    // for(auto const& body_part: body)
-    //   mvprintw(body_part.row, body_part.column,  "%c", 'o');
-    // mvprintw(food_start_coordinate.row, food_start_coordinate.column,  "%c", 'x');
-    // refresh();
+  while(1) {
+    int ch = window.keyboard_input();
+    if(ch == 'q') {
+      break;
+    }
   }
 
   return 0;
