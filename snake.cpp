@@ -225,10 +225,11 @@ auto main(void) -> int {
       break;
     }
 
-    if(head.row < 0 || head.column < 0 || head.row > row || head.column > column) {
+    if(head.row < 0 || head.column < 0 || 
+      head.row > game_play_window_length || head.column > game_play_window_width) {
       window.erase_window();
       std::string game_over_str = "game over...";
-      window.draw_text(game_play_window_length / 2, game_play_window_width / 2 - game_over_str.length() / 2, std::string("game over...."));
+      window.draw_text(game_play_window_length / 2, game_play_window_width / 2 - game_over_str.length() / 2, game_over_str);
       break;
     }
 
