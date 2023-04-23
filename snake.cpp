@@ -1,4 +1,4 @@
-#include <curses.h>
+#include "widgets.hpp"
 #include <sstream>
 #include <deque>
 #include <ncurses.h>
@@ -76,75 +76,6 @@ public:
 
 private:
   Body body;
-};
-
-
-// todo handle SIGWINCH
-class Screen {
-private:
-  int row;
-  int column;
-
-public:
-  Screen() {
-    initscr();
-    getmaxyx(stdscr, row, column);
-    clear();
-  }
-
-  auto screen_length(void) const -> int { return row; }
-  auto screen_width(void) const -> int { return column; }
-};
-
-
-// todo constructors for fit row, fit column, fit screen ....
-class Window {
-private:
-  int row;
-  int column;
-  WINDOW* win;
-
-public:
-  Window(int length, int width, int left_top_vertex_y, int left_top_vertex_x) { 
-    win = newwin(length, width, left_top_vertex_y, left_top_vertex_x);
-    getmaxyx(win, row, column); 
-    keypad(win, TRUE);
-    noecho();
-    curs_set(0);
-    wtimeout(win, 100);
-    box(win, 0, 0);
-    wrefresh(win);
-  }
-
-  auto keyboard_input() -> char {
-    return wgetch(win);
-  }
-
-  auto draw_char(int row, int column, char ch) -> void {
-    mvwprintw(win, row, column, "%c", ch);
-  }
-
-  auto draw_text(int row, int column, std::string str) -> void {
-    mvwprintw(win, row, column, "%s", str.c_str());
-  }
-
-  auto erase_char(int row, int column) -> void {
-    mvwdelch(win, row, column);
-  }
-  
-  auto erase_window() -> void {
-    werase(win);
-  }
-
-  auto render(void) -> void {
-    box(win, 0, 0);
-    wrefresh(win);
-  }
-
-  ~Window() {
-    delwin(win);
-    endwin();
-  }
 };
 
 
