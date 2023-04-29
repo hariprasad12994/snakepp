@@ -30,7 +30,16 @@ public:
 };
 
 
+auto test_overlapping_window(void) -> void {
+  Screen screen;
+  int row = screen.screen_length(), column = screen.screen_width();
+  Window window(row, column, 0, 0);
+  Window another_window(row, column, 0, 0);
+  getch();
+}
+
 const static std::map<std::string, std::function<void(void)>> test_fn ={
+  { "overlapping_window", test_overlapping_window }
 };
 
 
@@ -41,7 +50,8 @@ auto main(int argc, char* argv[]) -> int {
     opt::options_description desc{"options"};
     desc.add_options()
       ("help,h", "display program usage help")
-      ("basic_window_test", "create window");
+      ("basic_window_test", "create window")
+      ("overlapping_window", "test overlapping window");
     opt::variables_map program_options;
     opt::store(opt::parse_command_line(argc, argv, desc), program_options);
     opt::notify(program_options);
@@ -50,6 +60,7 @@ auto main(int argc, char* argv[]) -> int {
       std::cout << desc << '\n';
       return 0;
     }
+    test_overlapping_window();
 
   } catch(const std::exception& exception) {
     std::cerr << exception.what() << '\n';
