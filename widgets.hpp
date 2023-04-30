@@ -50,6 +50,9 @@ public:
   int column;
   int left_top_vertex_y;
   int left_top_vertex_x;
+
+  Box(int row, int column, int left_top_vertex_x, int left_top_vertex_y):
+    row(row), column(column), left_top_vertex_x(left_top_vertex_x), left_top_vertex_y(left_top_vertex_y) {}
 };
 
 
@@ -62,63 +65,112 @@ class Event {
 
 class Element {
 public:
-  virtual auto render() -> void = 0;
+  Element() {}
+  virtual auto render(const Box& box) -> void = 0;
   virtual auto handle_event(Event event) -> void = 0;
   // todo is_required?
   virtual auto size() -> unsigned int = 0;
 
 protected:
   WINDOW* logical_region;
-  Box box;
 };
 
 
-class Container: public Element {
+// Box size is known during rendering and 
+// chunks, elemen hierarchy and relationship at compile time
+// Spillatble.split(constraints) <= { Elements... }
+// .split returns a type
+// type on <= operator with n elements return Element*(splittable(constraint, element))
+
+
+// todo: generalise constraint, now specialising for fixed size hchunk
+// algorithm
+class Constraint {
 public:
-  auto render() -> void override {
-    std::for_each(children.cbegin(), children.cend(), [](auto const& child) { child->render(); });
-  }
+  Constraint(unsigned int chunk_count): chunk_count(chunk_count) {}
 
-  auto handle_event(Event event) -> void override {
-    std::for_each(children.cbegin(), children.cend(), [&event](auto const& child) { child->handle_event(event); });
-  }
-
-  auto chunk() -> std::vector<Box> {
-    // todo: dummy return remove after logic introduced
+  auto operator()(const Box& box) -> std::vector<Box> {
     auto chunks = std::vector<Box>();
+
+    // todo: structured binding?
     auto length = box.row;
     auto width = box.column;
     auto top_left_x = box.left_top_vertex_x;
     auto top_left_y = box.left_top_vertex_y;
 
+    auto chunk_length = length / chunk_count;
+    for(unsigned int chunk_iter = 0; chunk_iter < chunk_count; ++chunk_iter) {
+      chunks.push_back(Box(chunk_length, width, top_left_x + (chunk_iter * chunk_length), top_left_y));
+    }
+
     return chunks;
+  }
+
+private:
+  unsigned int chunk_count;
+};
+
+
+class Container: public Element {
+public:
+  Container(Constraint constraint, std::vector<std::unique_ptr<Element>> elems):
+    constraint(constraint), children(elems) {}
+
+  struct Chunker {
+    Constraint constraint;
+    Chunker(Constraint constraint): constraint(constraint) {}
+    // todo templated function to accept variadic number of elements and construct vector
+    // this is to hide the implementation details like using vector and also to provide
+    // a syntatic sugar for the lib user
+    std::unique_ptr<Element> operator<<=(std::vector<std::unique_ptr<Element>> elems) {
+      // return std::make_unique<Element>(Container(constraint, elems));
+      // dummy return as of now 
+      return std::unique_ptr<Element>(nullptr);
+    }
+  };
+
+  auto render(const Box& box) -> void override {
+    std::for_each(children.cbegin(), children.cend(), [&box](auto const& child) { child->render(box); });
+  }
+
+  auto handle_event(Event event) -> void override {
+    std::for_each(children.cbegin(), children.cend(), [&event](auto const& child) { child->handle_event(event); });
+  }
+  
+  // Why intermediate types and all the complex mechanism. As of now just to provide the
+  // user API interfaces similar to the end goal;
+  auto static chunk(unsigned int chunk_count) -> Chunker {
+    return Chunker(Constraint(chunk_count));
   }
 
   // todo: change to private, for test purposes of chunking this has
   // been made public
 // private: 
   std::vector<std::unique_ptr<Element>> children;
+  Constraint constraint;
 };
 
 
+// class hierarchy to separate from containers from actual widgets like
+// text, edit field, menu, canvas etc
 class Widget: public Element {
-private:
-  int row;
-  int column;
-  int left_top_vertex_y;
-  int left_top_vertex_x;
-  WINDOW* win;
-  
-public:
-  Widget() = delete;
-  Widget(int length, int width, int left_top_vertex_y_, int left_top_vertex_x_) { }
-  auto render() -> void override {}
+public: 
+  Widget() {}
+  auto render(const Box& box) -> void override {}
 };
 
 
+// Component is treated as element since it is group of
+// elements logically group as a bigger element, kinda a composition
+// Component can redirect, propagate events between them and downwards in
+// hierarchy. Especially this is good at custom events and also in
+// case of basic events shared between elements
+// for example handle custom keybindings in the component and pass down 
+// keys or mouse event down to the component. Also to pass down events like
+// quit. Components also help in propogating events into the core event queue
 class Component: public Element {
 public:
-  auto render(void) -> void override {}
+  auto render(const Box& boxvoid) -> void override {}
   auto handle_event(Event event) -> void override {}
 
 private:
@@ -128,6 +180,15 @@ private:
 
 
 class Border {};
+
+
+class Text: public Widget {
+public:
+  Text(const std::string& text) {}
+
+private:
+  std::string text;
+};
 
 
 class Screen {
@@ -190,7 +251,7 @@ public:
     werase(win);
   }
 
-  auto render(void) -> void {
+  auto render(const Box& boxvoid) -> void {
     box(win, 0, 0);
     wrefresh(win);
   }
