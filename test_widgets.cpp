@@ -33,9 +33,19 @@ public:
 auto test_overlapping_window(void) -> void {
   Screen screen;
   int row = screen.screen_length(), column = screen.screen_width();
+  int count = 0;
   Window window(row, column, 0, 0);
-  Window another_window(row, column, 0, 0);
-  getch();
+  Window another_window(20, 20, 0, 0);
+  while(1) {
+    int ch = window.keyboard_input();
+    window.draw_text(25, 25, (std::stringstream() << "count = " << count).str().c_str());
+    another_window.draw_text(2, 2, (std::stringstream() << "count = " << count).str().c_str());
+    // dummy box input for compilation reason
+    window.render(Box(0, 0, 0, 0));
+    // another_window.render(Box(0, 0, 0, 0));
+    count++;
+    if(count > 100) break;
+  }
 }
 
 const static std::map<std::string, std::function<void(void)>> test_fn ={

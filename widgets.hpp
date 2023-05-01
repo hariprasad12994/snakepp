@@ -69,9 +69,11 @@ public:
   virtual auto render(const Box& box) -> void = 0;
   virtual auto handle_event(Event event) -> void = 0;
   // todo is_required?
-  virtual auto size() -> unsigned int = 0;
+  // virtual auto size() -> unsigned int = 0;
 
 protected:
+  // todo how to leverage this, since window has to be created
+  // everytime with newwin, also it currently partial refresh is not possible
   WINDOW* logical_region;
 };
 
@@ -85,10 +87,12 @@ protected:
 
 // todo: generalise constraint, now specialising for fixed size hchunk
 // algorithm
+// todo: separate constraining from chunking
 class Constraint {
 public:
   Constraint(unsigned int chunk_count): chunk_count(chunk_count) {}
 
+  // todo use window to do actual chunking, replace Box with WINDOW
   auto operator()(const Box& box) -> std::vector<Box> {
     auto chunks = std::vector<Box>();
 
@@ -114,7 +118,7 @@ private:
 class Container: public Element {
 public:
   Container(Constraint constraint, std::vector<std::unique_ptr<Element>> elems):
-    constraint(constraint), children(elems) {}
+    constraint(constraint), children(std::move(elems)) {}
 
   struct Chunker {
     Constraint constraint;
@@ -123,9 +127,9 @@ public:
     // this is to hide the implementation details like using vector and also to provide
     // a syntatic sugar for the lib user
     std::unique_ptr<Element> operator<<=(std::vector<std::unique_ptr<Element>> elems) {
-      // return std::make_unique<Element>(Container(constraint, elems));
-      // dummy return as of now 
-      return std::unique_ptr<Element>(nullptr);
+      // todo how to make it better syntatic sugar
+      std::unique_ptr<Element> container = std::make_unique<Container>(constraint, std::move(elems));
+      return container;
     }
   };
 
@@ -170,7 +174,7 @@ public:
 // quit. Components also help in propogating events into the core event queue
 class Component: public Element {
 public:
-  auto render(const Box& boxvoid) -> void override {}
+  auto render(const Box& box) -> void override {}
   auto handle_event(Event event) -> void override {}
 
 private:
@@ -185,9 +189,20 @@ class Border {};
 class Text: public Widget {
 public:
   Text(const std::string& text) {}
+  auto render(const Box& box) -> void {}
+  auto handle_event(Event event) -> void {}
 
 private:
   std::string text;
+};
+
+
+class NScreen: public Container {
+public:
+  NScreen(): Container(Constraint(2), std::move(std::vector<std::unique_ptr<Element>>())) {
+    initscr();
+    clear();
+  }
 };
 
 
@@ -251,7 +266,7 @@ public:
     werase(win);
   }
 
-  auto render(const Box& boxvoid) -> void {
+  auto render(const Box& box_) -> void {
     box(win, 0, 0);
     wrefresh(win);
   }

@@ -89,6 +89,9 @@ auto main(void) -> int {
   Window score_win(score_window_length, score_window_width, 0, 0);
   Window window(game_play_window_length, game_play_window_width, score_window_length, 0);
 
+  Box score_win_box(score_window_length, score_window_width, 0, 0);
+  Box game_play_box(game_play_window_length, game_play_window_length, score_window_length, 0);
+
   std::random_device random_device;
   std::mt19937 generator(random_device());
   std::uniform_int_distribution<> row_distribution(0, game_play_window_length);
@@ -107,8 +110,8 @@ auto main(void) -> int {
   for(auto const& body_part: body)
     window.draw_char(body_part.row, body_part.column, 'o');
   window.draw_char(food_start_coordinate.row, food_start_coordinate.column, 'x');
-  window.render();
-  score_win.render();
+  window.render(score_win_box);
+  score_win.render(game_play_box);
 
   while(1) {
     int ch = window.keyboard_input();
@@ -184,8 +187,8 @@ auto main(void) -> int {
     for(auto const& body_part: body)
       window.draw_char(body_part.row, body_part.column, 'o');
     window.draw_char(food_start_coordinate.row, food_start_coordinate.column, 'x');
-    window.render();
-    score_win.render();
+    window.render(score_win_box);
+    score_win.render(game_play_box);
   }
 
   while(1) {
