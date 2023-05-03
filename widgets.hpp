@@ -1,4 +1,7 @@
+#include <cassert>
 #include <curses.h>
+#include <fstream>
+#include <iostream>
 #include <queue>
 #include <string>
 #include <memory>
@@ -66,6 +69,7 @@ class Event {
 class Element {
 public:
   Element() {}
+  Element(WINDOW* region): logical_region(region) {}
   virtual auto render(const Box& box) -> void = 0;
   virtual auto handle_event(Event event) -> void = 0;
   // todo is_required?
@@ -230,11 +234,17 @@ private:
   int column;
   int left_top_vertex_y;
   int left_top_vertex_x;
-  WINDOW* win;
+  // WINDOW* win;
 
 public:
+  // todo temp
+  WINDOW* win;
   Window(int length, int width, int left_top_vertex_y_, int left_top_vertex_x_) { 
     win = newwin(length, width, left_top_vertex_y_, left_top_vertex_x_);
+    if(win == NULL) {
+    std::ofstream o("hello.txt");
+    o << "error" << '\n';
+    }
     left_top_vertex_x = left_top_vertex_x_;
     left_top_vertex_y = left_top_vertex_y_;
     getmaxyx(win, row, column); 
@@ -247,6 +257,13 @@ public:
   }
 
   auto keyboard_input() -> char {
+    // wgetch is required even if there is only one input queue
+    // this is inorder to achieve region specific characteristics
+    // like delay, echo etc
+    // choices in hand: global getch but does this update the complete
+    // screen? and pass down the keystroke event
+    // or wgetch and fire event from that window ith context also since 
+    // wgetch calls wrefresh only the window is updated
     return wgetch(win);
   }
 
@@ -255,6 +272,7 @@ public:
   }
 
   auto draw_text(int row, int column, std::string str) -> void {
+    assert(win != nullptr);
     mvwprintw(win, row, column, "%s", str.c_str());
   }
 
