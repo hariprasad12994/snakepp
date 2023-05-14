@@ -74,6 +74,8 @@ public:
   virtual auto handle_event(Event event) -> void = 0;
   // todo is_required?
   // virtual auto size() -> unsigned int = 0;
+  // todo is_required?
+  // virtual auto resize(parent?) -> unsigned int = 0;
 
 protected:
   // todo how to leverage this, since window has to be created
@@ -121,8 +123,8 @@ private:
 
 class Container: public Element {
 public:
-  Container(Constraint constraint, std::vector<std::unique_ptr<Element>> elems):
-    constraint(constraint), children(std::move(elems)) {}
+  Container(std::vector<std::unique_ptr<Element>> elems):
+    children(std::move(elems)) {}
 
   struct Chunker {
     Constraint constraint;
@@ -132,7 +134,7 @@ public:
     // a syntatic sugar for the lib user
     std::unique_ptr<Element> operator<<=(std::vector<std::unique_ptr<Element>> elems) {
       // todo how to make it better syntatic sugar
-      std::unique_ptr<Element> container = std::make_unique<Container>(constraint, std::move(elems));
+      std::unique_ptr<Element> container = std::make_unique<Container>(std::move(elems));
       return container;
     }
   };
@@ -155,7 +157,6 @@ public:
   // been made public
 // private: 
   std::vector<std::unique_ptr<Element>> children;
-  Constraint constraint;
 };
 
 
@@ -167,6 +168,16 @@ public:
   auto render(const Box& box) -> void override {}
 };
 
+class UiMaker: public Element {
+private:
+  std::unique_ptr<Container::Chunker> chunker;
+  std::vector<std::unique_ptr<Element>> elements;
+
+public:
+  UiMaker(std::unique_ptr<Container::Chunker> chunker,
+          std::vector<std::unique_ptr<Element>> elements):
+  chunker(std::move(chunker)), elements(std::move(elements)) {}
+};
 
 // Component is treated as element since it is group of
 // elements logically group as a bigger element, kinda a composition
@@ -203,9 +214,13 @@ private:
 
 class NScreen: public Container {
 public:
-  NScreen(): Container(Constraint(2), std::move(std::vector<std::unique_ptr<Element>>())) {
+  NScreen(std::vector<std::unique_ptr<Element>> elems):
+    Container(std::move(elems)) {
     initscr();
     clear();
+    int cols = 0, rows = 0;
+    getmaxyx(stdscr, cols, rows);
+    logical_region = newwin(cols, rows, 0, 0);
   }
 };
 
