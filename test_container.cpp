@@ -1,8 +1,8 @@
-#include "widgets.hpp"
-#include <curses.h>
+#include "widgets_prime.hpp"
 
 
 /*
+ * end goal
 * auto ui = 
 * Screen::chunk(1) <<= {
 *   Box::chunk(2) <<= {
@@ -14,10 +14,21 @@
 
 
 auto main(void) -> int {
-  auto container = Container::chunk(3) <<= {};
-  auto another_container =
-    NScreen::chunk(3) <<= { 
-      Container::chunk(3) <<= {} 
+  auto ui =
+    LHS::chunks(2) <<= { 
+      _LHS::chunks(2) <<= {
+        text("hello"),
+        text("world")
+      },
+      _LHS::chunks(2) <<= {
+        text("hello"),
+        text("world")
+      } 
     };
+
+  while(1) {
+    ui->render();
+  }
+
   return 0;
 }
